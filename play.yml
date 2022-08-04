@@ -1,0 +1,5 @@
+---
+- name: haproxy custom installation
+  hosts: alma-1
+  roles:
+          - haproxy-custom 

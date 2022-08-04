@@ -1,0 +1,5 @@
+[inv]
+alma-1
+alma-2
+alma
+manager ansible_host=192.168.56.107

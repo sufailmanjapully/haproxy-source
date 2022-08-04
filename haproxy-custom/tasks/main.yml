@@ -1,0 +1,112 @@
+---
+# tasks file for haproxy-custom
+- name: install dependencies
+  dnf:
+          name: "{{item}}"
+          state: present
+  with_items: "{{ haproxy_dependency }}"
+
+- name: Download haproxy
+  get_url:
+          url: https://www.haproxy.org/download/2.6/src/haproxy-2.6.1.tar.gz
+          dest: /tmp/
+
+- name: extract packages
+  unarchive:
+          src: /tmp/haproxy-2.6.1.tar.gz
+          dest: /tmp/
+          remote_src: yes
+
+- name: create user for Haproxy
+  user:
+          name: haproxy
+          state: present
+          system: yes
+          create_home: False
+          shell: /sbin/nologin
+
+- name: Compilation and installation 
+  shell:
+          chdir: /tmp/haproxy-2.6.1
+          cmd: "make -j 4 TARGET=linux-glibc USE_OPENSSL=1 USE_ZLIB=1 USE_PCRE=1 USE_SYSTEMD=1 && make install PREFIX=/usr/local/haproxy"
+  register: compile_info
+
+- name: previw of Compilation and installation 
+  debug:
+          msg: "{{compile_info.stdout_lines}}"
+
+- name: Create a symbolic link
+  file:
+          src: /usr/local/haproxy/sbin/haproxy
+          dest: /usr/sbin/haproxy
+          state: link
+- name: check haproxy version
+  shell:
+          cmd: "haproxy -v"
+  register: version_check
+  tags: abc
+
+- name: print version
+  debug:
+          var: version_check.stdout
+  tags: abc
+
+- name: configure haproxy as a service
+  copy:
+          src: haproxy.service
+          dest: /usr/lib/systemd/system/haproxy.service
+  tags: copy 
+
+- name: reload daemon
+  systemd:
+    daemon_reload: yes
+  tags: reload
+
+- name: create conf directory
+  file:
+          path: "{{item}}"
+          state: directory
+          mode: "0755"
+  with_items:
+          - /etc/haproxy
+          - /var/lib/haproxy/dev
+  tags: copy1         
+
+- name: coping Haproxy.cfg
+  copy:
+          src: haproxy.cfg
+          dest: /etc/haproxy/haproxy.cfg
+  tags: copy2
+
+- name: Validate haproxy confiquration
+  shell:
+          cmd: "haproxy -c -f /etc/haproxy/haproxy.cfg"
+  register: validate
+  tags: valid
+- name: print validation
+  debug:
+          var: validate.stdout
+  tags: valid
+
+- name: start services
+  systemd:
+          name: "{{item}}"
+          state: started
+          enabled: yes
+  with_items:
+          - haproxy
+          - rsyslog
+  tags: start
+
+- name: rsyslog configuration of haproxy
+  copy:
+          src: haproxy-syslog.conf
+          dest: /etc/rsyslog.d/99-haproxy.conf
+  tags: copy1
+
+- name: restart service
+  service:
+          name: rsyslog
+          state: restarted
+
+
