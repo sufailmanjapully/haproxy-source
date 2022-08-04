@@ -30,32 +30,18 @@
           chdir: /tmp/haproxy-2.6.1
           cmd: "make -j 4 TARGET=linux-glibc USE_OPENSSL=1 USE_ZLIB=1 USE_PCRE=1 USE_SYSTEMD=1 && make install PREFIX=/usr/local/haproxy"
   register: compile_info
-
-- name: previw of Compilation and installation 
-  debug:
-          msg: "{{compile_info.stdout_lines}}"
+  failed_when: compile_info.rc != 0
 
 - name: Create a symbolic link
   file:
           src: /usr/local/haproxy/sbin/haproxy
           dest: /usr/sbin/haproxy
           state: link
-- name: check haproxy version
-  shell:
-          cmd: "haproxy -v"
-  register: version_check
-  tags: abc
-
-- name: print version
-  debug:
-          var: version_check.stdout
-  tags: abc
 
 - name: configure haproxy as a service
-  copy:
-          src: haproxy.service
+  template:
+          src: haproxy.service.j2
           dest: /usr/lib/systemd/system/haproxy.service
-  tags: copy 
 
 - name: reload daemon
   systemd:
@@ -70,25 +56,15 @@
   with_items:
           - /etc/haproxy
           - /var/lib/haproxy/dev
-  tags: copy1         
 
 - name: coping Haproxy.cfg
-  copy:
-          src: haproxy.cfg
+  template:
+          src: haproxy.cfg.j2
           dest: /etc/haproxy/haproxy.cfg
-  tags: copy2
-
-- name: Validate haproxy confiquration
-  shell:
-          cmd: "haproxy -c -f /etc/haproxy/haproxy.cfg"
-  register: validate
-  tags: valid
-- name: print validation
-  debug:
-          var: validate.stdout
+          validate: haproxy -c -f %s
   tags: valid
 
-- name: start services
+- name: start haproxy  
   systemd:
           name: "{{item}}"
           state: started
@@ -99,8 +75,8 @@
   tags: start
 
 - name: rsyslog configuration of haproxy
-  copy:
-          src: haproxy-syslog.conf
+  template:
+          src: haproxy-syslog.conf.j2
           dest: /etc/rsyslog.d/99-haproxy.conf
   tags: copy1
 

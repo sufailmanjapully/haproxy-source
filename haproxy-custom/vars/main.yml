@@ -1,7 +1,7 @@
 ---
 # vars file for haproxy-custom
 haproxy_dependency:
-        - make 
+        - make  
         - gcc 
         - pcre-devel 
         - bzip2-devel 
